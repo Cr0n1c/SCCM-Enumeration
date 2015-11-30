@@ -114,3 +114,33 @@ for row in sccm:
      
     graph.cypher.execute("MATCH (a:%s { name: '%s' }), (b:%s { samAccountName: '%s' }) CREATE UNIQUE (b)-[:TOP_USER]->(a)" %(node_comp, comp, node_tuser, topUser))
     graph.cypher.execute("MATCH (a:%s { name: '%s' }), (b:DefaultGateway { ip: '%s' }) CREATE UNIQUE (a)-[:CONNECTED]->(b)" %(node_comp, comp, gw))
+
+sccm2 = []
+with open('sccmquery2.csv', 'rb') as csvfile:
+    data = csv.reader(csvfile)
+    for row in data:
+        sccm2.append('|'.join(row))
+         
+for row in sccm2:
+    data = row.split('|')
+    comp = data[0].lower()
+    user = data[1].split('\\')[-1].lower()
+    date = data[2]
+     
+    if user in privyUsers:
+        node_user = 'PrivyUser'
+        node_comp = 'CriticalComputer'
+    else:
+        node_user = 'User'
+        node_comp = 'Computer'
+     
+    try:
+        topUserName = nonprivyUsers[user]
+    except KeyError:
+        topUserName = 'unknown'
+         
+    #building nodes and relationships
+    graphExecute("MERGE (a:%s {ip: '%s', name: '%s', gw: '%s'})" %(node_comp, comp))
+    graphExecute("MERGE (a:%s {samAccountName: '%s', name: '%s'})" %(node_user, user, topUserName))
+    graph.cypher.execute("MATCH (a:%s { name: '%s' }), (b:%s { samAccountName: '%s' }) CREATE (b)-[:LOGGED_INTO_%s]->(a)" %(node_comp, comp, node_user, user, date))
+    
