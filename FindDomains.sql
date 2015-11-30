@@ -1,0 +1,21 @@
+SELECT CreatedBy
+    ,CreatedOn
+    ,Description
+    ,DiscoveryEnabled
+    ,ForestFQDN
+    ,ForestID
+    ,ModifiedBy
+    ,ModifiedOn
+    ,PublishingEnabled
+    ,PublishingPath
+    ,Tombstoned
+    ,LastDiscoveryTime
+    ,Account
+    ,LastDiscoveryStatus
+    ,PublishingStatus
+    ,DiscoveredTrusts
+    ,DiscoveredDomains
+    ,DiscoveredADSites
+    ,DiscoveredIPSubnets
+FROM
+    vActiveDirectoryForests
