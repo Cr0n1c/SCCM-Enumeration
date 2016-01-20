@@ -1,26 +1,53 @@
 Import-Module activedirectory #Not default, must install
 Import-Module grouppolicy     #Not default, must install
  
- 
-#NOTE: Will not run on PowerShell v2
-$global:privyUsers = @{} #key: users SamAccountName, value: array of privileges from $xmlCapPrivUser
- 
- 
-Function Get-PrivyUsers {
-    #Getting "Default Domain Controller Policy"
-    [xml]$report = Get-GPOReport -Guid 6ac1786c-016f-11d2-945f-00c04fb984f9 -ReportType Xml -ErrorAction Stop
-    $global:linksApplied = $report.GPO.LinksTo.SomPath  #This will show all the OUs where the GPO has been applied"
-    $xmlCapPrivUser = @("SeAssignPrimaryTokenPrivilege","SeAuditPrivilege","SeBackupPrivilege","SeBatchLogonRight",
-                        "SeCreatePagefilePrivilege","SeCreatePermanentPrivilege","SeCreateTokenPrivilege",
-                        "SeDebugPrivilege","SeEnableDelegationPrivilege","SeIncreaseBasePriorityPrivilege",
-                        "SeIncreaseQuotaPrivilege","SeInteractiveLogonRight","SeLoadDriverPrivilege",
-                        "SeLockMemoryPrivilege","SeProfileSingleProcessPrivilege","SeRemoteShutdownPrivilege",
-                        "SeRestorePrivilege","SeSecurityPrivilege","SeServiceLogonRight","SeShutdownPrivilege",
-                        "SeTakeOwnershipPrivilege","SeTcbPrivilege","SeUndockPrivilege","SeSyncAgentPrivilege",
-                        "SeSystemEnvironmentPrivilege","SeSystemProfilePrivilege","SeSystemTimePrivilege")
+Function Get-GPPUsers {
+<#
+.SYNOPSIS
+    Uses GPOs to determine who is a privileged user for a specific GPO. Without any GUID assigned it will query the Default 
+    Domain Controllers Policy.
+
+    Author: Brandon Helms (@Cr0n1c)
+    Version: 1.0
+
+.SYNTAX
+    Get-GPPUsers -Guid 6ac1786c-016f-11d2-945f-00c04fb984f9
+    Get-GPPUsers -Name "Default Domain Controllers Policy"
+
+#>
+
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$false,Position=1)]
+        [string]$Guid = "6ac1786c-016f-11d2-945f-00c04fb984f9",
+
+        [Parameter(Mandatory=$false)]
+        [string]$Name
+    )
+    
+    $privyUsers = @{} #key: users SamAccountName, value: array of privileges from $xmlCapPrivUser
+
+    #Getting Policy Information
+    try{
+        if ($Name){
+            [xml]$report = Get-GPOReport -Name $Name -ReportType Xml -ErrorAction Stop
+        }else{
+            [xml]$report = Get-GPOReport -Guid $Guid -ReportType Xml -ErrorAction Stop
+        }
+    }catch{
+        Write-Error -Message "Best guess is that you tried to use a GPO that did not exist"
+        exit
+    }
+    
+    $linksApplied = $report.GPO.LinksTo.SomPath  #This will show all the OUs where the GPO has been applied"
+    $xmlCapPrivUser = @("SeAssignPrimaryTokenPrivilege","SeCreateTokenPrivilege","SeCreateGlobalPrivilege","SeDebugPrivilege",
+                        "SeEnableDelegationPrivilege","SeImpersonatePrivilege","SeInteractiveLogonRight","SeLoadDriverPrivilege",
+                        "SeRemoteInteractiveLogonRight","SeRemoteShutdownPrivilege","SeRelabelPrivilege","SeSecurityPrivilege",
+                        "SeSystemEnvironmentPrivilege","SeTakeOwnershipPrivilege","SeTrustedCredManAccessPrivilege",
+                        "SeNetworkLogonRight","SeMachineAccountPrivilege")
      
     ForEach ($policy in $report.GPO.Computer.ExtensionData.Extension.UserRightsAssignment){
-        If ($policy.Name -notin $xmlCapPrivUser){ #Ignoring key we don't care about
+        If ($policy.Name -notin $xmlCapPrivUser){ #Ignoring keys we don't care about
             continue
         }
  
@@ -31,6 +58,7 @@ Function Get-PrivyUsers {
             }
         }
     }
+    return $privyUsers
 }
  
 Function Convert-Sid($sid, $privLvl){
@@ -43,8 +71,8 @@ Function Convert-Sid($sid, $privLvl){
         $enabled = $user.Enabled
  
  
-        If ($global:privyUsers.ContainsKey($u) -and -not $global:privyUsers.$u.Contains($privLvl)){
-            $global:privyUsers.$u += $privLvl
+        If ($privyUsers.ContainsKey($u) -and -not $privyUsers.$u.Contains($privLvl)){
+            $privyUsers.$u += $privLvl
         }ElseIf (-not $privyUsers.ContainsKey($u) -and $enabled){
             $privyUsers.Add($u, @($privLvl))
         }
@@ -60,7 +88,3 @@ Function Convert-Sid($sid, $privLvl){
         }
     }
 }
- 
-Get-PrivyUsers
- 
-#All data that you care about will be stored in $global:privyUsers
