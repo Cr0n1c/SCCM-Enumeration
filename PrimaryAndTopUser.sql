@@ -19,6 +19,6 @@ WHERE
 AND
     IP.DefaultIPGateway0  != '0.0.0.0'
 AND
-    GS.TopConsoleUser0 like 'yojoe%'
+    GS.TopConsoleUser0 like '$domain%'  --Replace $domain with the network domain
 AND
     IP.DefaultIPGateway0 not like ':'
